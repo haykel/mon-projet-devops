@@ -1,4 +1,4 @@
-FROM --platform=linux/arm64 python:3.13-slim
+FROM python:3.13-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -13,6 +13,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+FROM base AS test
+RUN python manage.py test --verbosity=2
+
+FROM base AS production
 
 EXPOSE 8000
 
