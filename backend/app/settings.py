@@ -13,18 +13,29 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.auth",
     "rest_framework",
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
 ]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+]
+CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = "app.urls"
 
 DATABASES = {}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Finnhub
+FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY", "")
 
 # Keycloak
 KEYCLOAK_URL = os.environ.get("KEYCLOAK_URL", "http://localhost:8180")

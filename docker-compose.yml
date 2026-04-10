@@ -7,9 +7,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - KEYCLOAK_URL=http://keycloak:8080
+      - KEYCLOAK_URL=http://host.docker.internal:8180
       - KEYCLOAK_REALM=investissement
       - KEYCLOAK_CLIENT_ID=backend
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
       interval: 10s

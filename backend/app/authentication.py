@@ -33,8 +33,7 @@ class KeycloakAuthentication(BaseAuthentication):
                 token,
                 public_key,
                 algorithms=["RS256"],
-                audience=settings.KEYCLOAK_CLIENT_ID,
-                options={"verify_exp": True},
+                options={"verify_exp": True, "verify_aud": False},
             )
         except jwt.ExpiredSignatureError:
             raise AuthenticationFailed("Token has expired")
