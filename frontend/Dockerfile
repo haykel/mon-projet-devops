@@ -7,6 +7,9 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install
 
+ARG VITE_KEYCLOAK_URL=http://localhost:8180
+ENV VITE_KEYCLOAK_URL=$VITE_KEYCLOAK_URL
+
 COPY . .
 RUN npm run build
 

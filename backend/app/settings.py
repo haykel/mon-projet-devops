@@ -26,9 +26,17 @@ DATABASES = {}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Keycloak
+KEYCLOAK_URL = os.environ.get("KEYCLOAK_URL", "http://localhost:8180")
+KEYCLOAK_REALM = os.environ.get("KEYCLOAK_REALM", "investissement")
+KEYCLOAK_CLIENT_ID = os.environ.get("KEYCLOAK_CLIENT_ID", "backend")
+
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
+    ],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "app.authentication.KeycloakAuthentication",
     ],
     "UNAUTHENTICATED_USER": None,
 }
