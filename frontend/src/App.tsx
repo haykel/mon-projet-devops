@@ -1,22 +1,17 @@
-import KeycloakProvider, { useKeycloak } from "./components/KeycloakProvider";
-
-function Dashboard() {
-  const { username, roles, logout } = useKeycloak();
-
-  return (
-    <div>
-      <h1>Hello World</h1>
-      <p>Utilisateur : {username}</p>
-      <p>Rôles : {roles.join(", ")}</p>
-      <button onClick={logout}>Se déconnecter</button>
-    </div>
-  );
-}
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import KeycloakProvider from "./components/KeycloakProvider";
+import Home from "./pages/Home";
+import Stock from "./pages/Stock";
 
 function App() {
   return (
     <KeycloakProvider>
-      <Dashboard />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/stock/:ticker" element={<Stock />} />
+        </Routes>
+      </BrowserRouter>
     </KeycloakProvider>
   );
 }

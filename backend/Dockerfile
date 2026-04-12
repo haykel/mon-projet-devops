@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 FROM base AS test
-RUN python manage.py test --verbosity=2
+RUN DB_HOST= python manage.py test --verbosity=2
 
 FROM base AS production
 

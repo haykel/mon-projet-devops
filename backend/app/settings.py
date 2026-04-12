@@ -30,9 +30,42 @@ CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = "app.urls"
 
-DATABASES = {}
+DB_HOST = os.environ.get("DB_HOST", "")
+
+if DB_HOST:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("DB_NAME", "investissement"),
+            "USER": os.environ.get("DB_USER", "django"),
+            "PASSWORD": os.environ.get("DB_PASSWORD", "Django2026!"),
+            "HOST": DB_HOST,
+            "PORT": os.environ.get("DB_PORT", "5432"),
+        }
+    }
+else:
+    DATABASES = {}
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.environ.get(
+            "REDIS_URL", "redis://:Redis2026!@redis:6379/0"
+        ),
+    }
+}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Celery
+CELERY_BROKER_URL = os.environ.get(
+    "REDIS_URL", "redis://:Redis2026!@redis:6379/0"
+)
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "Europe/Paris"
 
 # Finnhub
 FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY", "")

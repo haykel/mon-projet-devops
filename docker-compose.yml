@@ -11,6 +11,12 @@ services:
       - KEYCLOAK_REALM=investissement
       - KEYCLOAK_CLIENT_ID=backend
       - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
+      - DB_NAME=investissement
+      - DB_USER=django
+      - DB_PASSWORD=Django2026!
+      - DB_HOST=host.docker.internal
+      - DB_PORT=5432
+      - REDIS_URL=redis://:Redis2026!@host.docker.internal:6379/0
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
       interval: 10s
