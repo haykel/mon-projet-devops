@@ -76,36 +76,42 @@ class FinnhubServiceTest(SimpleTestCase):
         results = service.search_symbol("XYZNONEXISTENT")
         self.assertEqual(results, [])
 
+    @patch("app.stocks.services.http_requests.get")
     @patch("app.stocks.services.finnhub.Client")
-    def test_get_candles_success(self, mock_client_cls, _mock_rl):
-        mock_client = MagicMock()
-        mock_client.stock_candles.return_value = {
-            "s": "ok",
-            "t": [1000, 2000],
-            "o": [100.0, 101.0],
-            "h": [102.0, 103.0],
-            "l": [99.0, 100.0],
-            "c": [101.0, 102.0],
-            "v": [1000000, 1100000],
+    def test_get_candles_success(self, mock_client_cls, mock_get, _mock_rl):
+        mock_client_cls.return_value = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "Time Series (Daily)": {
+                "2026-04-10": {"1. open": "100.0", "2. high": "102.0", "3. low": "99.0", "4. close": "101.0", "5. volume": "1000000"},
+                "2026-04-11": {"1. open": "101.0", "2. high": "103.0", "3. low": "100.0", "4. close": "102.0", "5. volume": "1100000"},
+            }
         }
-        mock_client_cls.return_value = mock_client
+        mock_resp.raise_for_status = MagicMock()
+        mock_get.return_value = mock_resp
 
         service = FinnhubService()
-        result = service.get_candles("AAPL", "1m")
+        with self.settings(ALPHA_VANTAGE_API_KEY="test-key"):
+            result = service.get_candles("AAPL", "1m")
 
         self.assertEqual(result["symbol"], "AAPL")
         self.assertEqual(len(result["candles"]), 2)
         self.assertEqual(result["candles"][0]["close"], 101.0)
         self.assertEqual(result["candles"][0]["volume"], 1000000)
+        self.assertEqual(result["candles"][0]["time"], "2026-04-10")
 
+    @patch("app.stocks.services.http_requests.get")
     @patch("app.stocks.services.finnhub.Client")
-    def test_get_candles_no_data(self, mock_client_cls, _mock_rl):
-        mock_client = MagicMock()
-        mock_client.stock_candles.return_value = {"s": "no_data"}
-        mock_client_cls.return_value = mock_client
+    def test_get_candles_no_data(self, mock_client_cls, mock_get, _mock_rl):
+        mock_client_cls.return_value = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"Time Series (Daily)": {}}
+        mock_resp.raise_for_status = MagicMock()
+        mock_get.return_value = mock_resp
 
         service = FinnhubService()
-        result = service.get_candles("AAPL", "1m")
+        with self.settings(ALPHA_VANTAGE_API_KEY="test-key"):
+            result = service.get_candles("AAPL", "1m")
         self.assertEqual(result["candles"], [])
 
     @patch("app.stocks.services.finnhub.Client")
@@ -113,8 +119,9 @@ class FinnhubServiceTest(SimpleTestCase):
         mock_client_cls.return_value = MagicMock()
 
         service = FinnhubService()
-        with self.assertRaises(FinnhubServiceError) as ctx:
-            service.get_candles("AAPL", "invalid")
+        with self.settings(ALPHA_VANTAGE_API_KEY="test-key"):
+            with self.assertRaises(FinnhubServiceError) as ctx:
+                service.get_candles("AAPL", "invalid")
         self.assertIn("Invalid period", str(ctx.exception))
 
     @patch("app.stocks.services.finnhub.Client")

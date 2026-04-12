@@ -3,9 +3,13 @@ import {
   searchStocks,
   getStock,
   getStockHistory,
+  getIndicators,
+  getScore,
   SearchResult,
   StockQuote,
   Candle,
+  IndicatorsData,
+  ScoreData,
 } from "../services/api";
 
 export function useStockSearch(query: string) {
@@ -99,4 +103,70 @@ export function useStockHistory(
   }, [ticker, period]);
 
   return { candles, loading, error };
+}
+
+export function useIndicators(
+  ticker: string | undefined,
+  indicators: string = "rsi,macd,ma20,ma50,bb",
+  period: string = "3m"
+) {
+  const [data, setData] = useState<IndicatorsData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!ticker) return;
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    getIndicators(ticker, indicators, period)
+      .then((d) => {
+        if (!cancelled) setData(d);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Impossible de charger les indicateurs");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ticker, indicators, period]);
+
+  return { data, loading, error };
+}
+
+export function useScore(ticker: string | undefined) {
+  const [score, setScore] = useState<ScoreData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!ticker) return;
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    getScore(ticker)
+      .then((d) => {
+        if (!cancelled) setScore(d);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Impossible de charger le score");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ticker]);
+
+  return { score, loading, error };
 }

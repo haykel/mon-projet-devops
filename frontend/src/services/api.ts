@@ -49,7 +49,7 @@ export interface SearchResult {
 }
 
 export interface Candle {
-  timestamp: number;
+  time: string;
   open: number;
   high: number;
   low: number;
@@ -90,6 +90,46 @@ export async function getStockHistory(
 export async function getIndices(): Promise<MarketIndex[]> {
   const { data } = await api.get("/markets/indices/");
   return data.indices;
+}
+
+export interface IndicatorsData {
+  symbol: string;
+  timestamps: number[];
+  rsi?: (number | null)[];
+  macd?: { macd: (number | null)[]; signal: (number | null)[]; histogram: (number | null)[] };
+  ma20?: (number | null)[];
+  ma50?: (number | null)[];
+  bollinger?: { upper: (number | null)[]; middle: (number | null)[]; lower: (number | null)[] };
+}
+
+export interface ScoreData {
+  symbol: string;
+  score: number;
+  signal: "ACHAT" | "NEUTRE" | "VENTE";
+  explanation: string;
+  details: {
+    rsi: number;
+    rsi_score: number;
+    trend_score: number;
+    volume_score: number;
+    volatility_score: number;
+  };
+}
+
+export async function getIndicators(
+  ticker: string,
+  indicators: string = "rsi,macd,ma20,ma50,bb",
+  period: string = "3m"
+): Promise<IndicatorsData> {
+  const { data } = await api.get(`/stocks/${ticker}/indicators/`, {
+    params: { indicators, period },
+  });
+  return data;
+}
+
+export async function getScore(ticker: string): Promise<ScoreData> {
+  const { data } = await api.get(`/stocks/${ticker}/score/`);
+  return data;
 }
 
 export default api;

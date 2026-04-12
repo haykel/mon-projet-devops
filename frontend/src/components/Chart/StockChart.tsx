@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createChart, IChartApi, ISeriesApi, LineData, UTCTimestamp } from "lightweight-charts";
+import { createChart, IChartApi, ISeriesApi, LineData } from "lightweight-charts";
 import { useStockHistory } from "../../hooks/useStock";
 
 interface Props {
@@ -68,7 +68,7 @@ export default function StockChart({ ticker }: Props) {
     if (!seriesRef.current || candles.length === 0) return;
 
     const lineData: LineData[] = candles.map((c) => ({
-      time: c.timestamp as UTCTimestamp,
+      time: c.time,
       value: c.close,
     }));
 

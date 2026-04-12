@@ -1,5 +1,7 @@
 import time
+
 import finnhub
+import requests as http_requests
 from django.conf import settings
 
 
@@ -95,60 +97,82 @@ class FinnhubService:
         ]
 
     def get_candles(self, ticker: str, period: str = "1m") -> dict:
-        """Get historical candlestick data.
+        """Get historical candlestick data via Alpha Vantage TIME_SERIES_DAILY.
+
+        Finnhub returns 403 on candles with the free plan, so we use
+        Alpha Vantage as the data source for historical OHLCV.
 
         Args:
             ticker: Stock symbol
-            period: Time period - 1d, 1w, 1m, 3m, 6m, 1y
+            period: Time period - 1d, 1w, 1m, 3m, 1y
 
         Returns:
             {
                 "symbol": "AAPL",
                 "candles": [
-                    {"timestamp": ..., "open": ..., "high": ..., "low": ..., "close": ..., "volume": ...},
+                    {"time": "2026-01-15", "open": ..., "high": ..., "low": ..., "close": ..., "volume": ...},
                     ...
                 ]
             }
         """
-        now = int(time.time())
-        period_map = {
-            "1d": (now - 86400, "5"),
-            "1w": (now - 604800, "15"),
-            "1m": (now - 2592000, "60"),
-            "3m": (now - 7776000, "D"),
-            "6m": (now - 15552000, "D"),
-            "1y": (now - 31536000, "W"),
+        period_days = {
+            "1d": 1,
+            "1w": 7,
+            "1m": 30,
+            "3m": 90,
+            "1y": 365,
         }
 
-        if period not in period_map:
+        if period not in period_days:
             raise FinnhubServiceError(
-                f"Invalid period: {period}. Use: {', '.join(period_map.keys())}"
+                f"Invalid period: {period}. Use: {', '.join(period_days.keys())}"
             )
 
-        from_ts, resolution = period_map[period]
+        api_key = settings.ALPHA_VANTAGE_API_KEY
+        if not api_key:
+            raise FinnhubServiceError("ALPHA_VANTAGE_API_KEY is not configured")
 
         self._rate_limit()
         try:
-            data = self.client.stock_candles(ticker.upper(), resolution, from_ts, now)
+            resp = http_requests.get(
+                "https://www.alphavantage.co/query",
+                params={
+                    "function": "TIME_SERIES_DAILY",
+                    "symbol": ticker.upper(),
+                    "outputsize": "compact",
+                    "apikey": api_key,
+                },
+                timeout=15,
+            )
+            resp.raise_for_status()
+            data = resp.json()
         except Exception as e:
             raise FinnhubServiceError(f"Failed to fetch candles for {ticker}: {e}")
 
-        if data.get("s") == "no_data":
+        if "Error Message" in data:
+            raise FinnhubServiceError(f"No data found for ticker: {ticker}")
+
+        if "Note" in data:
+            raise FinnhubServiceError("Alpha Vantage API rate limit reached")
+
+        ts = data.get("Time Series (Daily)", {})
+        if not ts:
             return {"symbol": ticker.upper(), "candles": []}
 
+        days = period_days[period]
+        sorted_dates = sorted(ts.keys(), reverse=True)[:days]
+
         candles = []
-        timestamps = data.get("t", [])
-        for i in range(len(timestamps)):
-            candles.append(
-                {
-                    "timestamp": timestamps[i],
-                    "open": data["o"][i],
-                    "high": data["h"][i],
-                    "low": data["l"][i],
-                    "close": data["c"][i],
-                    "volume": data["v"][i],
-                }
-            )
+        for date_str in reversed(sorted_dates):
+            entry = ts[date_str]
+            candles.append({
+                "time": date_str,
+                "open": float(entry["1. open"]),
+                "high": float(entry["2. high"]),
+                "low": float(entry["3. low"]),
+                "close": float(entry["4. close"]),
+                "volume": int(entry["5. volume"]),
+            })
 
         return {"symbol": ticker.upper(), "candles": candles}
 

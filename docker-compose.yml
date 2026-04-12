@@ -12,6 +12,7 @@ services:
       - KEYCLOAK_REALM=investissement
       - KEYCLOAK_CLIENT_ID=backend
       - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY:-}
       - DB_NAME=investissement
       - DB_USER=django
       - DB_PASSWORD=Django2026!

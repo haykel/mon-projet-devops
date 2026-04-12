@@ -22,15 +22,43 @@ spec:
         - name: keycloak
           image: quay.io/keycloak/keycloak:26.1
           args:
-            - start-dev
+            - start
           env:
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL
+              value: jdbc:postgresql://postgresql.production.svc.cluster.local:5432/keycloak_db
+            - name: KC_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: KC_DB_USERNAME
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: KC_DB_PASSWORD
+            - name: KC_HOSTNAME
+              value: localhost
+            - name: KC_HOSTNAME_PORT
+              value: "8180"
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
+            - name: KC_HOSTNAME_STRICT_HTTPS
+              value: "false"
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_PROXY
+              value: edge
+            - name: KC_HEALTH_ENABLED
+              value: "true"
             - name: KEYCLOAK_ADMIN
               value: admin
             - name: KEYCLOAK_ADMIN_PASSWORD
-            - name: KC_HTTP_ENABLED
-              value: "true"
-            - name: KC_HOSTNAME_STRICT
-              value: "false"
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: KEYCLOAK_ADMIN_PASSWORD
           ports:
             - containerPort: 8080
           resources:
@@ -38,8 +66,43 @@ spec:
               memory: 512Mi
               cpu: 500m
             limits:
-              memory: 1500Mi
+              memory: 2Gi
               cpu: 1000m
+          startupProbe:
+            httpGet:
+              path: /health/started
+              port: 9000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 30
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 9000
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 10
+            timeoutSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 9000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 5
+            timeoutSeconds: 10
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: keycloak-db-secret
+  namespace: keycloak
+type: Opaque
+stringData:
+  KC_DB_USERNAME: keycloak
+  KC_DB_PASSWORD: Keycloak2026!
+  KEYCLOAK_ADMIN_PASSWORD: Admin2026!Secure
 ---
 apiVersion: v1
 kind: Service

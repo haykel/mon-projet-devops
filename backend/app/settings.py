@@ -121,6 +121,9 @@ CELERY_BEAT_SCHEDULE = {
 # Finnhub
 FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY", "")
 
+# Alpha Vantage
+ALPHA_VANTAGE_API_KEY = os.environ.get("ALPHA_VANTAGE_API_KEY", "")
+
 # Keycloak
 KEYCLOAK_URL = os.environ.get("KEYCLOAK_URL", "http://localhost:8180")
 KEYCLOAK_REALM = os.environ.get("KEYCLOAK_REALM", "investissement")
