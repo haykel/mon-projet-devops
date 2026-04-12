@@ -63,7 +63,7 @@ echo "✅ Secrets Vault initialisés"
 
 # 7. Lance docker-compose
 echo "⏳ Démarrage des services docker-compose..."
-docker-compose up -d
+docker-compose up -d 2>&1 | grep -v "keycloak"
 echo "✅ Services démarrés"
 
 # 8. Affiche le résumé
