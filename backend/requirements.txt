@@ -11,3 +11,4 @@ psycopg2-binary==2.9.10
 django-redis==5.4.0
 celery==5.4.0
 redis==5.2.1
+django-unfold==0.50.0

@@ -9,17 +9,49 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() == "true"
 
 ALLOWED_HOSTS = ["*"]
 
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = []
+
+FIXTURE_DIRS = [
+    BASE_DIR / "fixtures",
+]
+
 INSTALLED_APPS = [
+    "unfold",
+    "django.contrib.admin",
     "django.contrib.contenttypes",
     "django.contrib.auth",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
+    "app.datasources",
+]
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
 ]
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
 ]
 
 CORS_ALLOWED_ORIGINS = [
@@ -44,7 +76,12 @@ if DB_HOST:
         }
     }
 else:
-    DATABASES = {}
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
+        }
+    }
 
 CACHES = {
     "default": {
@@ -66,6 +103,20 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "Europe/Paris"
+CELERY_BEAT_SCHEDULE = {
+    "reset-daily-counters": {
+        "task": "app.datasources.tasks.reset_daily_counters",
+        "schedule": 86400,  # every 24h
+    },
+    "check-sources-health": {
+        "task": "app.datasources.tasks.check_sources_health",
+        "schedule": 300,  # every 5 minutes
+    },
+    "update-top10": {
+        "task": "app.datasources.tasks.update_top10",
+        "schedule": 900,  # every 15 minutes
+    },
+}
 
 # Finnhub
 FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY", "")
@@ -83,4 +134,29 @@ REST_FRAMEWORK = {
         "app.authentication.KeycloakAuthentication",
     ],
     "UNAUTHENTICATED_USER": None,
+}
+
+# Unfold Admin Theme
+UNFOLD = {
+    "SITE_TITLE": "Plateforme Investissement",
+    "SITE_HEADER": "Administration",
+    "SITE_URL": "/",
+    "SITE_ICON": None,
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": True,
+    "COLORS": {
+        "primary": {
+            "50": "240 249 255",
+            "100": "224 242 254",
+            "200": "186 230 253",
+            "300": "125 211 252",
+            "400": "56 189 248",
+            "500": "14 165 233",
+            "600": "2 132 199",
+            "700": "3 105 161",
+            "800": "7 89 133",
+            "900": "12 74 110",
+            "950": "8 47 73",
+        },
+    },
 }

@@ -7,6 +7,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - DJANGO_DEBUG=True
       - KEYCLOAK_URL=http://host.docker.internal:8180
       - KEYCLOAK_REALM=investissement
       - KEYCLOAK_CLIENT_ID=backend
@@ -15,7 +16,7 @@ services:
       - DB_USER=django
       - DB_PASSWORD=Django2026!
       - DB_HOST=host.docker.internal
-      - DB_PORT=5432
+      - DB_PORT=5433
       - REDIS_URL=redis://:Redis2026!@host.docker.internal:6379/0
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
@@ -25,6 +26,8 @@ services:
     depends_on:
       keycloak:
         condition: service_healthy
+    volumes:
+      - ./backend/staticfiles:/app/staticfiles
 
   frontend:
     build:
