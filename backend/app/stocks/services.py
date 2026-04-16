@@ -1,8 +1,66 @@
+import logging
 import time
 
 import finnhub
 import requests as http_requests
+import yfinance as yf
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
+
+YFINANCE_PERIOD_MAP = {
+    "1d": ("1d", "5m"),
+    "1w": ("5d", "60m"),
+    "1m": ("1mo", "1d"),
+    "3m": ("3mo", "1d"),
+    "1y": ("1y", "1wk"),
+    "5y": ("5y", "1mo"),
+}
+
+DAILY_INTERVALS = {"1d", "1wk", "1mo"}
+
+
+def get_history_yfinance(ticker: str, period: str) -> list:
+    """Fetch historical OHLCV data from Yahoo Finance using yf.download.
+
+    Returns:
+        [{"time": "2026-04-10", "open": 259.98, ...}, ...]
+    """
+    yf_period, interval = YFINANCE_PERIOD_MAP.get(period, ("1mo", "1d"))
+
+    try:
+        df = yf.download(
+            ticker.upper(),
+            period=yf_period,
+            interval=interval,
+            auto_adjust=True,
+            progress=False,
+            threads=False,
+        )
+    except Exception as e:
+        raise FinnhubServiceError(f"Yahoo Finance failed for {ticker}: {e}")
+
+    if df.empty:
+        return []
+
+    candles = []
+    for date, row in df.iterrows():
+        time_str = (
+            date.strftime("%Y-%m-%d")
+            if interval in DAILY_INTERVALS
+            else date.strftime("%Y-%m-%d %H:%M:%S")
+        )
+        candles.append({
+            "time": time_str,
+            "open": round(float(row["Open"]), 2),
+            "high": round(float(row["High"]), 2),
+            "low": round(float(row["Low"]), 2),
+            "close": round(float(row["Close"]), 2),
+            "volume": int(row["Volume"]),
+        })
+
+    return candles
 
 
 class FinnhubServiceError(Exception):
@@ -97,14 +155,14 @@ class FinnhubService:
         ]
 
     def get_candles(self, ticker: str, period: str = "1m") -> dict:
-        """Get historical candlestick data via Alpha Vantage TIME_SERIES_DAILY.
+        """Get historical candlestick data via Alpha Vantage, with Yahoo Finance fallback.
 
-        Finnhub returns 403 on candles with the free plan, so we use
-        Alpha Vantage as the data source for historical OHLCV.
+        Alpha Vantage is the primary source. If it returns a quota/rate-limit
+        error ('Information' or 'Note' key), we fall back to Yahoo Finance.
 
         Args:
             ticker: Stock symbol
-            period: Time period - 1d, 1w, 1m, 3m, 1y
+            period: Time period - 1d, 1w, 1m, 3m, 1y, 5y
 
         Returns:
             {
@@ -121,6 +179,7 @@ class FinnhubService:
             "1m": 30,
             "3m": 90,
             "1y": 365,
+            "5y": 1825,
         }
 
         if period not in period_days:
@@ -128,9 +187,22 @@ class FinnhubService:
                 f"Invalid period: {period}. Use: {', '.join(period_days.keys())}"
             )
 
-        api_key = settings.ALPHA_VANTAGE_API_KEY
+        # Try Alpha Vantage first
+        candles = self._get_history_alphavantage(ticker, period, period_days[period])
+        if candles is not None:
+            return {"symbol": ticker.upper(), "candles": candles}
+
+        # Fallback to Yahoo Finance
+        logger.info("Alpha Vantage quota exceeded, falling back to Yahoo Finance for %s", ticker)
+        yf_candles = get_history_yfinance(ticker, period)
+        return {"symbol": ticker.upper(), "candles": yf_candles}
+
+    def _get_history_alphavantage(self, ticker: str, period: str, days: int) -> list | None:
+        """Fetch from Alpha Vantage. Returns None if quota exceeded (caller should fallback)."""
+        api_key = getattr(settings, "ALPHA_VANTAGE_API_KEY", "")
         if not api_key:
-            raise FinnhubServiceError("ALPHA_VANTAGE_API_KEY is not configured")
+            logger.warning("ALPHA_VANTAGE_API_KEY not configured, skipping Alpha Vantage")
+            return None
 
         self._rate_limit()
         try:
@@ -147,19 +219,29 @@ class FinnhubService:
             resp.raise_for_status()
             data = resp.json()
         except Exception as e:
-            raise FinnhubServiceError(f"Failed to fetch candles for {ticker}: {e}")
+            logger.warning("Alpha Vantage request failed for %s: %s", ticker, e)
+            return None
 
         if "Error Message" in data:
             raise FinnhubServiceError(f"No data found for ticker: {ticker}")
 
-        if "Note" in data:
-            raise FinnhubServiceError("Alpha Vantage API rate limit reached")
+        if "Information" in data or "Note" in data:
+            logger.warning(
+                "Alpha Vantage quota exceeded for %s: %s",
+                ticker,
+                data.get("Information") or data.get("Note"),
+            )
+            return None
 
-        ts = data.get("Time Series (Daily)", {})
+        ts = data.get("Time Series (Daily)")
         if not ts:
-            return {"symbol": ticker.upper(), "candles": []}
+            logger.error(
+                "Alpha Vantage response missing 'Time Series (Daily)' for %s. Keys: %s",
+                ticker,
+                list(data.keys()),
+            )
+            return None
 
-        days = period_days[period]
         sorted_dates = sorted(ts.keys(), reverse=True)[:days]
 
         candles = []
@@ -174,7 +256,7 @@ class FinnhubService:
                 "volume": int(entry["5. volume"]),
             })
 
-        return {"symbol": ticker.upper(), "candles": candles}
+        return candles
 
     def get_market_indices(self) -> list:
         """Get quotes for major market indices.

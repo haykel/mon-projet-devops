@@ -132,4 +132,9 @@ export async function getScore(ticker: string): Promise<ScoreData> {
   return data;
 }
 
+export async function getTop10(): Promise<StockQuote[]> {
+  const { data } = await api.get("/stocks/top10/");
+  return data.top10;
+}
+
 export default api;

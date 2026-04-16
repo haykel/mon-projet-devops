@@ -106,11 +106,11 @@ def stock_indicators(request, ticker):
     if not candles:
         return Response({"error": "Pas de données disponibles"}, status=status.HTTP_404_NOT_FOUND)
 
-    timestamps = [c["timestamp"] for c in candles]
+    times = [c.get("time") or c.get("timestamp") for c in candles]
     closes = [c["close"] for c in candles]
     volumes = [c["volume"] for c in candles]
 
-    result: dict = {"symbol": ticker.upper(), "timestamps": timestamps}
+    result: dict = {"symbol": ticker.upper(), "timestamps": times}
 
     if "rsi" in indicator_list:
         result["rsi"] = TechnicalIndicators.calculate_rsi(closes)
@@ -167,3 +167,39 @@ def stock_score(request, ticker):
 
     cache.set(cache_key, json.dumps(score_data), timeout=300)
     return Response(score_data)
+
+
+TOP_TICKERS = [
+    "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA",
+    "META", "NFLX", "AMD", "INTC", "CRM", "ORCL", "ADBE", "PYPL",
+    "JPM", "BAC", "GS", "MS", "V", "MA", "UBER", "LYFT",
+    "SPOT", "SNAP", "SQ", "SHOP", "ZM", "DOCU", "COIN", "PLTR",
+]
+
+
+@api_view(["GET"])
+@authentication_classes([KeycloakAuthentication])
+@require_role("user")
+def stock_top10(request):
+    """GET /api/stocks/top10/ — Top 10 performers of the day."""
+    cache_key = "top10"
+    cached = cache.get(cache_key)
+    if cached:
+        return Response(json.loads(cached))
+
+    service = FinnhubService()
+    quotes = []
+
+    for ticker in TOP_TICKERS:
+        try:
+            quote = service.get_quote(ticker)
+            if quote.get("change_percent") is not None:
+                quotes.append(quote)
+        except FinnhubServiceError:
+            continue
+
+    top10 = sorted(quotes, key=lambda q: q.get("change_percent", 0), reverse=True)[:10]
+    result = {"top10": top10}
+
+    cache.set(cache_key, json.dumps(result), timeout=900)
+    return Response(result)
